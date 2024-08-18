@@ -1,3 +1,5 @@
+from dotenv import load_dotenv
+import os
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackContext
 from telegram.ext.filters import MessageFilter
@@ -92,7 +94,8 @@ async def process_question(update: Update, context: CallbackContext) -> None:
 def main() -> None:
     """Start the bot."""
     # Create the Updater and pass it your bot's token.
-    TOKEN = '7210118618:AAFVBb97mo6nlPTVO9nlnTr8BSRcUd4zfjA'
+    load_dotenv()
+    TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
     application = Application.builder().token(TOKEN).build()
 
     # Adding handlers
@@ -100,9 +103,10 @@ def main() -> None:
     #application.add_handler(CommandHandler("faq_mumubit", faq))
     application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), process_question))
     application.add_handler(CallbackQueryHandler(button))
-    
+    print("MumuBot started")
     # Start the application
     application.run_polling()
+    
 
 if __name__ == '__main__':
     main()
