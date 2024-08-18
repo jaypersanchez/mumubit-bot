@@ -68,11 +68,25 @@ def is_question(text):
 async def process_question(update: Update, context: CallbackContext) -> None:
     """Automatically respond to questions posted in the chat if they seem like FAQs."""
     text = update.message.text.lower()
-    if is_question(text):  # Check if the text contains a question mark
+    if is_question(text):
+        # Check if the text contains keywords that match FAQs
+        matched_response = None
+        for key, value in faqs.items():
+            if any(keyword in text for keyword in value['keywords']):
+                matched_response = value['response']
+                break
+
+        # Respond with the matched answer or a default message
+        if matched_response:
+            await update.message.reply_text(matched_response)
+        else:
+            await update.message.reply_text("I'm sorry, I couldn't find a specific answer to your question. Please see the topics below for more information:")
+
+        # Provide additional FAQ topics as buttons regardless of whether a direct answer was found
         reply_markup = get_faq_keyboard()
-        await update.message.reply_text("I noticed you have a question. Please select a topic related to your question:", reply_markup=reply_markup)
+        await update.message.reply_text("You can also explore the following FAQ topics:", reply_markup=reply_markup)
     else:
-        await update.message.reply_text("I'm sorry I did not understand your question. I am still learning.  Please ask me a question and include a question mark at the end.")
+        await update.message.reply_text("Hello! How can I assist you today? Feel free to ask any questions.")
 
 
 def main() -> None:
