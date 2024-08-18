@@ -5,8 +5,19 @@ from telegram.ext import Application, CommandHandler, MessageHandler, CallbackCo
 from telegram.ext.filters import MessageFilter
 from telegram.ext import filters, CallbackQueryHandler
 import re
-
+import tweepy
 from faqs import faqs
+
+# Access Twitter credentials from environment variables
+api_key = os.getenv('TWITTER_API_KEY')
+api_secret = os.getenv('TWITTER_API_SECRET')
+access_token = os.getenv('TWITTER_ACCESS_TOKEN')
+access_token_secret = os.getenv('TWITTER_ACCESS_TOKEN_SECRET')
+
+# Twitter authentication
+auth = tweepy.OAuthHandler(api_key, api_secret)
+auth.set_access_token(access_token, access_token_secret)
+api = tweepy.API(auth)
 
 # Command Handlers
 async def start(update: Update, context: CallbackContext) -> None:
@@ -98,6 +109,9 @@ def main() -> None:
     TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
     application = Application.builder().token(TOKEN).build()
 
+    # twitter test
+    api.update_status("Hello from Mumubot!")
+    
     # Adding handlers
     #application.add_handler(CommandHandler("start_mumubit", start))
     #application.add_handler(CommandHandler("faq_mumubit", faq))
