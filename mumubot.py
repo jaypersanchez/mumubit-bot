@@ -1,5 +1,8 @@
-from telegram import Update, Bot
-from telegram.ext import Updater, CommandHandler, CallbackContext, Application
+from telegram import Update
+from telegram.ext import Application, CommandHandler, MessageHandler, CallbackContext
+from telegram.ext.filters import MessageFilter
+from telegram.ext import filters
+
 
 faqs = {
     "registration": {
@@ -66,6 +69,31 @@ async def test(update: Update, context: CallbackContext) -> None:
     """Respond to the /test_mumubit command."""
     await update.message.reply_text('MumuBot is alive!')
 
+# Define a custom filter for text messages that might be questions
+class QuestionFilter(MessageFilter):
+    def filter(self, message):
+        return '?' in message.text
+
+# Instantiate the filter
+question_filter = QuestionFilter()
+
+# Handler to automatically respond to questions
+async def process_question(update: Update, context: CallbackContext) -> None:
+    print (update.message.text)
+    text = update.message.text
+    if '?' in text:  # Check if it's a question based on the presence of a question mark
+        answer = None
+        for topic, info in faqs.items():
+            if any(keyword in text.lower() for keyword in info['keywords']):
+                answer = info['response']
+                break
+
+        if answer:
+            await update.message.reply_text(answer)
+        else:
+            await update.message.reply_text("I'm not sure how to answer that. Can you please clarify or ask another question?")
+
+
 def main() -> None:
     """Start the bot."""
     # Create the Updater and pass it your bot's token.
@@ -77,6 +105,13 @@ def main() -> None:
     application.add_handler(CommandHandler("test_mumubit", test))
     application.add_handler(CommandHandler("faq_mumubit", faq))
     
+    # Add a MessageHandler to process all text messages that might be questions
+    #application.add_handler(MessageHandler(question_filter, process_question))
+    # Add a MessageHandler to process all text messages that might be questions
+    application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), process_question))
+
+
+        
     # Start the application
     application.run_polling()
 
