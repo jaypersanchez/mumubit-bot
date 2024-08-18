@@ -1,40 +1,30 @@
-from telegram import Update, Bot
-from telegram.ext import Updater, CommandHandler, CallbackContext, Application
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Application, CommandHandler, MessageHandler, CallbackContext
+from telegram.ext.filters import MessageFilter
+from telegram.ext import filters, CallbackQueryHandler
+import re
 
-faqs = {
-    "registration": {
-        "keywords": ["registration", "register", "signup", "sign up"],
-        "response": "To register, please visit our website and follow the instructions."
-    },
-    "investment": {
-        "keywords": ["invest", "investment", "how to invest", "investing"],
-        "response": "You can invest in Mumubit by purchasing nodes. For more details, visit our investment page or check out our node sales."
-    },
-    "nodes": {
-        "keywords": ["nodes", "node sale", "what are nodes", "benefits of nodes"],
-        "response": "Nodes represent different identities within our Builder system. Validators, Influencers, and Contributors play different roles in our ecosystem, offering various benefits including minting MCTP tokens and earning from ecosystem projects."
-    },
-    "staking": {
-        "keywords": ["staking", "how to stake", "staking details", "how to earn", "earn"],
-        "response": "Staking requires holding a certain number of MCTP tokens and locks them for a period to support network operations. Rewards include income from DEX earnings and other ecosystem projects."
-    },
-    "partnerships": {
-        "keywords": ["partnerships", "partners", "collaborations", "reputable partners"],
-        "response": "Mumubit has partnered with several industry leaders like Polygon and Metis, as well as with various IDO platforms like Enjinstarter."
-    },
-    "community": {
-        "keywords": ["community", "importance of community", "community role"],
-        "response": "Community is crucial to Mumubit. Our Builder program allows community members to engage as nodes, contributing to and benefiting from the platform’s growth."
-    },
-    "future plans": {
-        "keywords": ["future plans", "upcoming", "what to expect"],
-        "response": "We plan to release several games through our Builder program in 2024 and launch our DEX to support liquidity for MCTP and other project tokens."
-    },
-    "mumubit": {
-        "keywords": ["what is mumubit", "about mumubit", "mumubit information"],
-        "response": "Mumubit is an IDO and web3 project launch platform that supports third-party projects and releases ecosystem projects through our Builder system."
-    }
-}
+from faqs import faqs
+
+# Command Handlers
+async def start(update: Update, context: CallbackContext) -> None:
+    """Send a message when the command /start_mumubit is issued with an inline keyboard."""
+    keyboard = [
+        [InlineKeyboardButton("About Nodes", callback_data='nodes')],
+        [InlineKeyboardButton("Investment Options", callback_data='investment')],
+        [InlineKeyboardButton("FAQ", callback_data='faq')]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text('Welcome! How can I assist you today? Choose an option below:', reply_markup=reply_markup)
+
+async def button(update: Update, context: CallbackContext) -> None:
+    """Handle button presses from the inline keyboard."""
+    query = update.callback_query
+    query.answer()
+    # Retrieve the full FAQ response based on the button pressed
+    data = query.data
+    response = faqs[data]['response']  # Use callback_data as the key to fetch the full response
+    await query.edit_message_text(text=response)
 
 
 async def faq(update: Update, context: CallbackContext) -> None:
@@ -45,26 +35,59 @@ async def faq(update: Update, context: CallbackContext) -> None:
         await update.message.reply_text("Please ask a question after the command. For example, '/faq_mumubit how to invest'.")
         return
 
-    # Find a matching answer using enhanced keyword search
-    answer = None
-    for topic, info in faqs.items():
-        if any(keyword in question for keyword in info['keywords']):
-            answer = info['response']
-            break
-
+    answer = next((info['response'] for key, info in faqs.items() if any(keyword in question for keyword in info['keywords'])), None)
     if answer:
         await update.message.reply_text(answer)
     else:
         await update.message.reply_text("Sorry, I couldn't find an answer to your question. Please check your input or try asking something else.")
 
-# Define your command handlers
-async def start(update: Update, context: CallbackContext) -> None:
-    """Send a message when the command /start_mumubit is issued."""
-    await update.message.reply_text('Hello! I am MumuBot. How can I help you?')
+def get_faq_keyboard():
+    """Generate an inline keyboard with FAQ topics."""
+    keyboard = []
+    for key, value in faqs.items():
+        # Each button in the inline keyboard corresponds to an FAQ entry
+        keyboard.append([InlineKeyboardButton(value['response'][:40] + "...", callback_data=key)])
+    return InlineKeyboardMarkup(keyboard)
 
-async def test(update: Update, context: CallbackContext) -> None:
-    """Respond to the /test_mumubit command."""
-    await update.message.reply_text('MumuBot is alive!')
+
+def get_faq_keyboard():
+    """Generate an inline keyboard with FAQ topics."""
+    keyboard = []
+    for key, value in faqs.items():
+        # Each button in the inline keyboard corresponds to an FAQ entry
+        keyboard.append([InlineKeyboardButton(value['response'][:40] + "...", callback_data=key)])
+    return InlineKeyboardMarkup(keyboard)
+
+def is_question(text):
+    # Pattern to find sentence starts with a question word followed by any word until end of sentence or a punctuation
+    pattern = r'\b(who|what|when|where|why|how|do|does|can|could|would|should|is|are|will)\b.*[\?\.\!]?'
+    if re.search(pattern, text, re.I):  # re.I makes the search case-insensitive
+        return True
+    return False
+
+async def process_question(update: Update, context: CallbackContext) -> None:
+    """Automatically respond to questions posted in the chat if they seem like FAQs."""
+    text = update.message.text.lower()
+    if is_question(text):
+        # Check if the text contains keywords that match FAQs
+        matched_response = None
+        for key, value in faqs.items():
+            if any(keyword in text for keyword in value['keywords']):
+                matched_response = value['response']
+                break
+
+        # Respond with the matched answer or a default message
+        if matched_response:
+            await update.message.reply_text(matched_response)
+        else:
+            await update.message.reply_text("I'm sorry, I couldn't find a specific answer to your question. Please see the topics below for more information:")
+
+        # Provide additional FAQ topics as buttons regardless of whether a direct answer was found
+        reply_markup = get_faq_keyboard()
+        await update.message.reply_text("You can also explore the following FAQ topics:", reply_markup=reply_markup)
+    else:
+        await update.message.reply_text("Hello! How can I assist you today? Feel free to ask any questions.")
+
 
 def main() -> None:
     """Start the bot."""
@@ -73,9 +96,10 @@ def main() -> None:
     application = Application.builder().token(TOKEN).build()
 
     # Adding handlers
-    application.add_handler(CommandHandler("start_mumubit", start))
-    application.add_handler(CommandHandler("test_mumubit", test))
-    application.add_handler(CommandHandler("faq_mumubit", faq))
+    #application.add_handler(CommandHandler("start_mumubit", start))
+    #application.add_handler(CommandHandler("faq_mumubit", faq))
+    application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), process_question))
+    application.add_handler(CallbackQueryHandler(button))
     
     # Start the application
     application.run_polling()
